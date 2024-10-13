@@ -1,0 +1,39 @@
+# Set default behavior to automatically normalize line endings
+* text=auto
+
+# Source code
+*.py     text eol=lf
+*.pyi    text eol=lf
+*.pyx    text eol=lf
+*.pxd    text eol=lf
+
+# Scripts
+*.sh     text eol=lf
+*.bash   text eol=lf
+*.fish   text eol=lf
+
+# Documentation
+*.md       text eol=lf
+*.rst      text eol=lf
+*.txt      text eol=lf
+*.yaml     text eol=lf
+*.yml      text eol=lf
+*.toml     text eol=lf
+*.json     text eol=lf
+
+# Config files
+.gitattributes text eol=lf
+.gitignore     text eol=lf
+.flake8        text eol=lf
+Makefile       text eol=lf
+*.ini          text eol=lf
+
+# Don't modify binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.gz binary
+*.zip binary
+*.7z binary
