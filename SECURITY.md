@@ -14,7 +14,7 @@ Use this section to tell people about which versions of your project are current
 We take the security of our project seriously. If you have discovered a security vulnerability, please follow these steps:
 
 1. **Do not** disclose the vulnerability publicly.
-2. Send a detailed description of the vulnerability to [security@example.com](mailto:security@example.com).
+2. Send a detailed description of the vulnerability to [omar.mountassir@gmail.com](mailto:omar.mountassir@gmail.com).
 3. Include steps to reproduce the vulnerability, if possible.
 4. We will acknowledge receipt of your vulnerability report and send you regular updates about our progress.
 

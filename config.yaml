@@ -1,0 +1,326 @@
+directories:
+  - project_initializer
+  - tests
+  - scripts
+  - docs
+  - docs/guides
+  - .github/workflows
+
+files:
+  - path: README.md
+    content: |
+      # Project Initializer
+
+      A tool to initialize project structures based on YAML configurations.
+
+      ## Features
+
+      - Initialize project structures based on YAML configuration files
+      - Flexible directory and file creation
+      - User-friendly command-line interface
+      - Verbose mode for detailed logging
+      - Build and clean project commands
+      - Generate project documentation
+      - Create new project components
+      - Automated testing and security checks
+
+      ## Prerequisites
+
+      Before you begin, ensure you have met the following requirements:
+
+      - Python 3.7 or higher installed on your system
+      - pip (Python package installer)
+      - Git (for version control and installation from GitHub)
+
+      ## Installation
+
+      You can install Project Initializer using pip:
+
+      ```bash
+      pip install git+https://github.com/skrillll/project-initializer.git
+      ```
+
+      For development purposes, clone the repository and install in editable mode:
+
+      ```bash
+      git clone https://github.com/skrillll/project-initializer.git
+      cd project-initializer
+      pip install -e .
+      ```
+
+      ## Usage
+
+      ### Initializing a Project
+
+      To initialize a new project structure:
+
+      ```bash
+      project-initializer init --config config.yaml --output .
+      ```
+
+      [Add more usage instructions here]
+
+  - path: setup.py
+    content: |
+      from setuptools import setup, find_packages
+
+      with open("README.md", "r", encoding="utf-8") as fh:
+          long_description = fh.read()
+
+      setup(
+          name="project-initializer",
+          version="0.1.0",
+          author="El Mountassir Omar",
+          author_email="omar.mountassir@gmail.com",
+          description="A tool to initialize project structures based on YAML configurations",
+          long_description=long_description,
+          long_description_content_type="text/markdown",
+          url="https://github.com/skrillll/project-initializer",
+          packages=find_packages(),
+          classifiers=[
+              "Development Status :: 3 - Alpha",
+              "Intended Audience :: Developers",
+              "License :: OSI Approved :: MIT License",
+              "Operating System :: OS Independent",
+              "Programming Language :: Python :: 3",
+              "Programming Language :: Python :: 3.7",
+              "Programming Language :: Python :: 3.8",
+              "Programming Language :: Python :: 3.9",
+              "Programming Language :: Python :: 3.10",
+              "Programming Language :: Python :: 3.11",
+              "Programming Language :: Python :: 3.12",
+          ],
+          python_requires=">=3.7",
+          install_requires=[
+              "click",
+              "PyYAML",
+          ],
+          entry_points={
+              "console_scripts": [
+                  "project-initializer=project_initializer.cli:cli",
+              ],
+          },
+      )
+
+  - path: project_initializer/__init__.py
+    content: |
+      from .file_manager import FileManager
+      from .directory_manager import DirectoryManager
+      from .config_loader import ConfigLoader
+      from .cli import cli
+
+      def init_project_structure(config_path):
+          config = ConfigLoader.load_config(config_path)
+          dir_manager = DirectoryManager(config['directories'])
+          file_manager = FileManager(config['files'])
+
+          dir_manager.create_directories()
+          file_manager.create_files()
+
+          print("Advanced project structure initialized successfully.")
+
+      def build_project(directory):
+          # Add your build logic here
+          pass
+
+      def clean_project(directory):
+          # Add your cleaning logic here
+          pass
+
+      __all__ = ['cli', 'init_project_structure', 'build_project', 'clean_project']
+
+  - path: project_initializer/cli.py
+    content: |
+      import click
+      import logging
+      import os
+      from . import init_project_structure, build_project, clean_project
+
+      def setup_logging(verbose, log_file):
+          logger = logging.getLogger('project_initializer')
+          logger.setLevel(logging.DEBUG if verbose else logging.INFO)
+          formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+          
+          if log_file:
+              file_handler = logging.FileHandler(log_file)
+              file_handler.setFormatter(formatter)
+              logger.addHandler(file_handler)
+          
+          console_handler = logging.StreamHandler()
+          console_handler.setFormatter(formatter)
+          logger.addHandler(console_handler)
+          
+          return logger
+
+      @click.group()
+      @click.option('--verbose', '-v', is_flag=True, help='Enables verbose mode.')
+      @click.option('--log-file', type=click.Path(), help='Path to the log file.')
+      @click.option('--log-level', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], case_sensitive=False), default='INFO', help='Set the logging level.')
+      @click.pass_context
+      def cli(ctx, verbose, log_file, log_level):
+          """Project Initializer CLI"""
+          ctx.ensure_object(dict)
+          ctx.obj['VERBOSE'] = verbose
+          ctx.obj['LOGGER'] = setup_logging(verbose, log_file)
+          
+          logging_level = getattr(logging, log_level.upper())
+          ctx.obj['LOGGER'].setLevel(logging_level)
+          
+          ctx.obj['LOGGER'].debug("Logging system initialized.")
+
+      @cli.command()
+      @click.option('--config', '-c', type=click.Path(exists=True), default='config.yaml', help='Path to the configuration file.')
+      @click.option('--output', '-o', type=click.Path(), default='.', help='Output directory for the project structure.')
+      @click.option('--template', '-t', type=click.Choice(['default', 'web', 'data-science', 'cli']), default='default', help='Project template to use.')
+      @click.pass_context
+      def init(ctx, config, output, template):
+          """Initialize project structure based on the configuration file."""
+          logger = ctx.obj['LOGGER']
+          
+          logger.info(f"Initializing project structure using {template} template...")
+          logger.debug(f"Using configuration file: {config}")
+          logger.debug(f"Output directory: {output}")
+
+          os.chdir(output)
+
+          try:
+              init_project_structure(config, template)
+              logger.info("Project structure initialized successfully.")
+              click.echo("Project structure initialized successfully.")
+          except Exception as e:
+              logger.error(f"Error initializing project structure: {str(e)}", exc_info=True)
+              click.echo(f"Error initializing project structure. Check the log for details.", err=True)
+
+      if __name__ == '__main__':
+          cli()
+
+  - path: tests/test_project_initializer.py
+    content: |
+      import pytest
+      import tempfile
+      import os
+      from project_initializer import init_project_structure, build_project, clean_project
+
+      def test_init_project_structure():
+          with tempfile.TemporaryDirectory() as tmpdir:
+              config_path = os.path.join(tmpdir, 'config.yaml')
+              with open(config_path, 'w') as f:
+                  f.write("""
+                  directories:
+                    - src
+                  files:
+                    - path: src/main.py
+                      content: "print('Hello, World!')"
+                  """)
+              
+              init_project_structure(config_path, 'default')
+              
+              assert os.path.exists(os.path.join(tmpdir, 'src'))
+              assert os.path.exists(os.path.join(tmpdir, 'src', 'main.py'))
+              with open(os.path.join(tmpdir, 'src', 'main.py'), 'r') as f:
+                  assert f.read() == "print('Hello, World!')"
+
+      def test_build_project():
+          with tempfile.TemporaryDirectory() as tmpdir:
+              build_project(tmpdir, 'dev')
+              # Add assertions based on what build_project should do
+
+      def test_clean_project():
+          with tempfile.TemporaryDirectory() as tmpdir:
+              # Create some files and directories
+              os.makedirs(os.path.join(tmpdir, 'build'))
+              open(os.path.join(tmpdir, 'build', 'output.txt'), 'w').close()
+              
+              clean_project(tmpdir, False)
+              
+              assert not os.path.exists(os.path.join(tmpdir, 'build'))
+
+  - path: scripts/update_project_structure.py
+    content: |
+      import os
+      import sys
+
+      def get_structure(startpath):
+          structure = []
+          for root, dirs, files in os.walk(startpath):
+              level = root.replace(startpath, '').count(os.sep)
+              indent = ' ' * 4 * level
+              structure.append(f'{indent}{os.path.basename(root)}/')
+              subindent = ' ' * 4 * (level + 1)
+              for f in files:
+                  structure.append(f'{subindent}{f}')
+          return structure
+
+      def create_project_structure_md():
+          project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+          docs_dir = os.path.join(project_root, 'docs')
+          os.makedirs(docs_dir, exist_ok=True)
+          structure = get_structure(project_root)
+          with open(os.path.join(docs_dir, 'PROJECT_STRUCTURE.md'), 'w') as f:
+              f.write("# Project Structure\n\n")
+              f.write("```\n")
+              f.write("\n".join(structure))
+              f.write("\n```\n")
+          print("PROJECT_STRUCTURE.md has been created/updated in the docs folder.")
+
+      if __name__ == "__main__":
+          create_project_structure_md()
+
+  - path: docs/guides/setting_up_new_project.md
+    content: |
+      # Setting Up a New Project
+
+      This guide will walk you through the process of setting up a new project using the Project Initializer.
+
+      1. Install the Project Initializer as described in the main README.md file.
+      2. Create a configuration file (e.g., `config.yaml`) that defines your project structure.
+      3. Run the initializer command:
+         ```
+         project-initializer init --config config.yaml --output .
+         ```
+      4. Your project structure will be created based on the configuration file.
+
+      ## Notes
+
+      - Your first workflow run might fail because of missing secrets or if you haven't set up PyPI deployment yet. That's okay for now.
+      - You can always update the workflow file to remove or modify steps that aren't relevant yet.
+      - The CI/CD pipeline set up is quite advanced for a beginner project. You might want to start with a simpler workflow that just runs tests, and gradually add more steps as you become more comfortable with the process.
+
+  - path: .github/workflows/ci_cd.yml
+    content: |
+      name: CI/CD
+
+      on: [push, pull_request]
+
+      jobs:
+        test:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v2
+            - name: Set up Python
+              uses: actions/setup-python@v2
+              with:
+                python-version: '3.x'
+            - name: Install dependencies
+              run: |
+                python -m pip install --upgrade pip
+                pip install -r requirements.txt
+            - name: Run tests
+              run: pytest
+
+        lint:
+          runs-on: ubuntu-latest
+          steps:
+            - uses: actions/checkout@v2
+            - name: Set up Python
+              uses: actions/setup-python@v2
+              with:
+                python-version: '3.x'
+            - name: Install dependencies
+              run: |
+                python -m pip install --upgrade pip
+                pip install flake8
+            - name: Run linter
+              run: flake8 .
+
+      # Add more jobs as needed

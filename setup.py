@@ -6,12 +6,12 @@ with open("README.md", "r", encoding="utf-8") as fh:
 setup(
     name="project-initializer",
     version="0.1.0",
-    author="Your Name",
-    author_email="your.email@example.com",
+    author="El Mountassir Omar",
+    author_email="omar.mountassir@gmail.com",
     description="A tool to initialize project structures based on YAML configurations",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/yourusername/project-initializer",
+    url="https://github.com/skrillll/project-initializer",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 3 - Alpha",

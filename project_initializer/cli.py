@@ -1,57 +1,38 @@
 import click
-import os
 import logging
-from logging.handlers import RotatingFileHandler
+import os
+from .core import init_project_structure, build_project, clean_project
 from .config_loader import ConfigLoader
-from . import init_project_structure, build_project, clean_project
+from .directory_manager import DirectoryManager
+from .file_manager import FileManager
+
+logger = logging.getLogger(__name__)
 
 def setup_logging(verbose, log_file):
-    """Set up logging configuration."""
     log_level = logging.DEBUG if verbose else logging.INFO
-    log_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    date_format = '%Y-%m-%d %H:%M:%S'
-
-    # Configure root logger
-    logging.basicConfig(level=log_level, format=log_format, datefmt=date_format)
-    root_logger = logging.getLogger()
-
-    # Remove existing handlers to avoid duplication
-    for handler in root_logger.handlers[:]:
-        root_logger.removeHandler(handler)
-
-    # Console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(log_level)
-    console_formatter = logging.Formatter(log_format, datefmt=date_format)
-    console_handler.setFormatter(console_formatter)
-    root_logger.addHandler(console_handler)
-
-    # File handler (if log_file is specified)
+    logging.basicConfig(level=log_level, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    
     if log_file:
-        file_handler = RotatingFileHandler(log_file, maxBytes=10*1024*1024, backupCount=5)
-        file_handler.setLevel(logging.DEBUG)  # Always set file logging to DEBUG
-        file_formatter = logging.Formatter(log_format, datefmt=date_format)
-        file_handler.setFormatter(file_formatter)
-        root_logger.addHandler(file_handler)
-
-    return root_logger
+        file_handler = logging.FileHandler(log_file)
+        file_handler.setLevel(log_level)
+        file_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+        logging.getLogger().addHandler(file_handler)
+    
+    # Ensure all loggers are set to the correct level
+    for name in logging.root.manager.loggerDict:
+        logging.getLogger(name).setLevel(log_level)
+    
+    return logger
 
 @click.group()
 @click.option('--verbose', '-v', is_flag=True, help='Enables verbose mode.')
 @click.option('--log-file', type=click.Path(), help='Path to the log file.')
-@click.option('--log-level', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], case_sensitive=False), default='INFO', help='Set the logging level.')
 @click.pass_context
-def cli(ctx, verbose, log_file, log_level):
+def cli(ctx, verbose, log_file):
     """Project Initializer CLI"""
     ctx.ensure_object(dict)
     ctx.obj['VERBOSE'] = verbose
     ctx.obj['LOGGER'] = setup_logging(verbose, log_file)
-    
-    # Set log level based on user input
-    logging_level = getattr(logging, log_level.upper())
-    ctx.obj['LOGGER'].setLevel(logging_level)
-    
-    ctx.obj['LOGGER'].debug("Logging system initialized.")
 
 @cli.command()
 @click.option('--config', '-c', type=click.Path(exists=True), default='config.yaml', help='Path to the configuration file.')
@@ -59,91 +40,124 @@ def cli(ctx, verbose, log_file, log_level):
 @click.option('--template', '-t', type=click.Choice(['default', 'web', 'data-science', 'cli']), default='default', help='Project template to use.')
 @click.pass_context
 def init(ctx, config, output, template):
-    """Initialize project structure based on the configuration file."""
+    """Initialize project structure based on the configuration file and template."""
     logger = ctx.obj['LOGGER']
     
-    logger.info(f"Initializing project structure using {template} template...")
-    logger.debug(f"Using configuration file: {config}")
-    logger.debug(f"Output directory: {output}")
-
-    # Change the current working directory to the output directory
-    os.chdir(output)
-
     try:
-        init_project_structure(config, template)
-        logger.info("Project structure initialized successfully.")
-        click.echo("Project structure initialized successfully.")
+        logger.info(f"Initializing project structure using {template} template...")
+        logger.debug(f"Using configuration file: {config}")
+        logger.debug(f"Output directory: {output}")
+
+        # Get absolute paths
+        config_abs_path = os.path.abspath(config)
+        output_abs_path = os.path.abspath(output)
+
+        # Create the output directory if it doesn't exist
+        os.makedirs(output_abs_path, exist_ok=True)
+        
+        # Change to the output directory
+        original_dir = os.getcwd()
+        os.chdir(output_abs_path)
+
+        init_project_structure(config_abs_path, template)
+        logger.info(f"Project structure initialized successfully using {template} template.")
+        click.echo(f"Project structure initialized successfully using {template} template.")
+    except FileNotFoundError:
+        logger.error(f"Configuration file not found: {config}", exc_info=True)
+        click.echo(f"Error: Configuration file '{config}' not found. Please make sure the file exists and the path is correct.", err=True)
+    except PermissionError:
+        logger.error(f"Permission denied when creating project structure in {output}", exc_info=True)
+        click.echo(f"Error: Permission denied when creating project structure. Please check your permissions for the output directory.", err=True)
     except Exception as e:
         logger.error(f"Error initializing project structure: {str(e)}", exc_info=True)
-        click.echo(f"Error initializing project structure. Check the log for details.", err=True)
+        click.echo(f"Error initializing project structure: {str(e)}", err=True)
+    finally:
+        # Change back to the original directory
+        os.chdir(original_dir)
 
 @cli.command()
-@click.option('--output', '-o', type=click.Path(exists=True), default='.', help='Project directory to build.')
-@click.option('--target', '-t', type=click.Choice(['dev', 'prod']), default='dev', help='Build target (development or production).')
+@click.option('--config', default='config.yaml', help='Path to the configuration file')
+@click.option('--output', default='.', help='Output directory for the project')
+@click.option('--verbose', is_flag=True, help='Enable verbose output')
+def init_project(config, output, verbose):
+    """Initialize project structure based on configuration."""
+    if verbose:
+        logger.setLevel(logging.DEBUG)
+    
+    logger.info(f"Initializing project structure using configuration from {config}")
+    
+    try:
+        # Create the output directory if it doesn't exist
+        os.makedirs(output, exist_ok=True)
+        
+        # Change to the output directory
+        os.chdir(output)
+        
+        # Load configuration
+        config_data = ConfigLoader.load_config(config)
+        
+        # Initialize managers
+        dir_manager = DirectoryManager(config_data.get('directories', []))
+        file_manager = FileManager(config_data.get('files', []))
+        
+        # Create project structure
+        dir_manager.create_directories()
+        file_manager.create_files()
+        
+        logger.info(f"Project structure initialized successfully in {output}")
+    except Exception as e:
+        logger.error(f"An error occurred: {str(e)}")
+        raise click.ClickException(str(e))
+
+@cli.command()
+@click.option('--directory', '-d', type=click.Path(exists=True), default='.', help='Directory of the project to build.')
+@click.option('--dry-run', is_flag=True, help='Show what would be done without making actual changes.')
 @click.pass_context
-def build(ctx, output, target):
+def build(ctx, directory, dry_run):
     """Build the project."""
     logger = ctx.obj['LOGGER']
-    logger.info(f"Building project in {output} for {target} environment...")
-    try:
-        build_project(output, target)
+    logger.info(f"Building project in {directory}")
+    
+    if dry_run:
+        click.echo("Dry run: showing what would be done without making changes.")
+    
+    success, actions = build_project(directory)
+    
+    for action in actions:
+        click.echo(action)
+    
+    if success:
         logger.info("Project built successfully.")
         click.echo("Project built successfully.")
-    except Exception as e:
-        logger.error(f"Error building project: {str(e)}", exc_info=True)
-        click.echo(f"Error building project. Check the log for details.", err=True)
+    else:
+        logger.error("Error building project. See above for details.")
+        click.echo("Error building project. See above for details.", err=True)
 
 @cli.command()
-@click.option('--output', '-o', type=click.Path(exists=True), default='.', help='Project directory to clean.')
-@click.option('--all', '-a', is_flag=True, help='Remove all generated files, including configuration.')
-@click.confirmation_option(prompt='Are you sure you want to clean the project directory?')
+@click.option('--directory', '-d', type=click.Path(exists=True), default='.', help='Directory of the project to clean.')
+@click.option('--all', 'all_files', is_flag=True, help='Remove all generated files, including caches.')
+@click.option('--dry-run', is_flag=True, help='Show what would be done without making actual changes.')
+@click.confirmation_option(prompt='Are you sure you want to clean the project?')
 @click.pass_context
-def clean(ctx, output, all):
-    """Clean the project directory."""
+def clean(ctx, directory, all_files, dry_run):
+    """Clean the project."""
     logger = ctx.obj['LOGGER']
-    logger.info(f"Cleaning project in {output}...")
-    try:
-        clean_project(output, all)
+    logger.info(f"Cleaning project in {directory}")
+    
+    if dry_run:
+        click.echo("Dry run: showing what would be done without making changes.")
+    
+    success, actions = clean_project(directory, all_files)
+    
+    for action in actions:
+        click.echo(action)
+    
+    if success:
         logger.info("Project cleaned successfully.")
         click.echo("Project cleaned successfully.")
-    except Exception as e:
-        logger.error(f"Error cleaning project: {str(e)}", exc_info=True)
-        click.echo(f"Error cleaning project. Check the log for details.", err=True)
-
-@cli.command()
-@click.option('--format', '-f', type=click.Choice(['html', 'pdf']), default='html', help='Output format for documentation.')
-@click.option('--output', '-o', type=click.Path(), default='docs/build', help='Output directory for generated documentation.')
-@click.pass_context
-def docs(ctx, format, output):
-    """Generate project documentation."""
-    logger = ctx.obj['LOGGER']
-    logger.info(f"Generating {format} documentation in {output}...")
-    os.chdir('docs')
-    try:
-        if format == 'html':
-            os.system(f'sphinx-build -b html . {output}')
-        elif format == 'pdf':
-            os.system(f'sphinx-build -b latex . {output} && cd {output} && make')
-        logger.info("Documentation generated successfully.")
-        click.echo(f"Documentation generated successfully in {output}/")
-    except Exception as e:
-        logger.error(f"Error generating documentation: {str(e)}", exc_info=True)
-        click.echo(f"Error generating documentation. Check the log for details.", err=True)
-
-@cli.command()
-@click.option('--name', '-n', required=True, help='Name of the new component.')
-@click.option('--type', '-t', type=click.Choice(['class', 'function']), default='class', help='Type of component to create.')
-@click.pass_context
-def create(ctx, name, type):
-    """Create a new project component."""
-    logger = ctx.obj['LOGGER']
-    logger.info(f"Creating new {type} component: {name}")
-    try:
-        # Add logic to create new component
-        click.echo(f"Created new {type} component: {name}")
-    except Exception as e:
-        logger.error(f"Error creating component: {str(e)}", exc_info=True)
-        click.echo(f"Error creating component. Check the log for details.", err=True)
+    else:
+        logger.error("Error cleaning project. See above for details.")
+        click.echo("Error cleaning project. See above for details.", err=True)
 
 if __name__ == '__main__':
     cli()

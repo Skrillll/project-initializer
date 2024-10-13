@@ -1,0 +1,59 @@
+project_name: TestProject
+
+directories:
+  - src
+  - tests
+  - docs
+  - config
+
+files:
+  - path: src/__init__.py
+    content: |
+      # TestProject main package
+
+  - path: src/main.py
+    content: |
+      def main():
+          print("Hello from TestProject!")
+
+      if __name__ == "__main__":
+          main()
+
+  - path: tests/test_main.py
+    content: |
+      import unittest
+      from src.main import main
+
+      class TestMain(unittest.TestCase):
+          def test_main(self):
+              # This is a placeholder test
+              self.assertTrue(True)
+
+  - path: docs/README.md
+    content: |
+      # TestProject Documentation
+
+      This is the main documentation for TestProject.
+
+  - path: config/settings.py
+    content: |
+      # TestProject settings
+
+      DEBUG = True
+      VERSION = "0.1.0"
+
+  - path: README.md
+    content: |
+      # TestProject
+
+      This is a test project created using Project Initializer.
+
+      ## Setup
+
+      1. Install dependencies: `pip install -r requirements.txt`
+      2. Run the main script: `python src/main.py`
+
+  - path: requirements.txt
+    content: |
+      # Add your project dependencies here
+      pytest==7.3.1
